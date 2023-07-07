@@ -18,6 +18,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ethers",
+ "eyre",
  "redis",
  "serde",
  "serde_json",

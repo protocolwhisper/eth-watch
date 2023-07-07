@@ -1,19 +1,16 @@
 use anyhow::Result;
+use ethers::abi::Abi;
+use ethers::prelude::k256::elliptic_curve::bigint::const_residue;
+use ethers::prelude::multicall_contract;
 use ethers::{
     contract::Contract,
     core::types::Address,
-    prelude::{
-        abigen,
-        k256::sha2::digest::typenum::{uint, Min},
-    },
-    providers::{Provider, StreamExt, Ws},
+    providers::{Provider, Ws},
 };
 use redis::Commands;
 use serde::Deserialize;
-use serde_json::from_str;
-use std::error::Error;
-use std::fs::read_to_string;
 use std::sync::Arc;
+
 //abigen!(FakeNFT, "./abi.json"); // Symbolic to get any contract abi
 // It's that possible? just getting the address | if verified of course
 
@@ -28,31 +25,49 @@ struct ConfigFile {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let config_variables = load_json("./config.json").await?;
-    //Load the ABI
-    let sc_id = &config_variables.sc_name;
-    let path = &config_variables.abi_path.as_str();
-    // Should this be solved with a try?
-    abigen!(FakeNFT, "./abi.json");
-    // Setup-provider
-    let provider = Provider::<Ws>::connect(config_variables.api_key).await?;
-    let client = Arc::new(provider);
-    //Parse the contract address
-    let address: Address = config_variables.contract_address.parse()?;
-    let contract = sc_name::new(address, client);
-    //listen_all_events(&contract).await?;
+async fn main() -> Result<(), anyhow::Error> {
+    let config_variables = load_config_file().await?;
+    let contract_instance = create_contract_instance(
+        &config_variables.api_key,
+        &config_variables.contract_address,
+        &config_variables.abi_path,
+    )
+    .await?;
     Ok(())
 }
 
-async fn load_json(path_to_json: &str) -> Result<ConfigFile> {
-    let json_str = read_to_string(path_to_json)?; // Read the file content
-    let config_file: ConfigFile = serde_json::from_str(&json_str)?; // Parse the JSON content into ConfigFile
+// Load ConfigFile
+async fn load_config_file() -> Result<ConfigFile> {
+    let path_to_json = "./config.json";
+    let json_str = std::fs::read_to_string(path_to_json)?; // Read the file content
+    let config_file: ConfigFile = serde_json::from_str(&json_str)?; // Parse the JSON content into the Struct
     println!("The config file is {:?}", config_file);
     Ok(config_file)
 }
 
-async fn listen_all_events(contract: &FakeNFT<Provider<Ws>>) -> Result<()> {
+// Instanciate Contract
+async fn create_contract_instance(
+    provider_url: &str,
+    contract_address: &str,
+    abi_path: &str,
+) -> Result<Contract<Provider<Ws>>> {
+    // Parse the contract address
+    let address: Address = contract_address.parse()?;
+
+    // Load the ABI
+    let abi: Abi = serde_json::from_reader(std::fs::File::open(abi_path)?)?;
+
+    // Create an instance of the provider
+    let provider = Provider::<Ws>::connect(provider_url).await?;
+    let client = Arc::new(provider);
+
+    // Create the contract instance
+    let contract = Contract::new(address, abi, client);
+
+    Ok(contract)
+}
+
+/* async fn listen_all_events(contract: &FakeNFT<Provider<Ws>>) -> Result<()> {
     // optionally sync from recent?
     let events = contract.events().from_block(3739350);
     let mut stream = events.stream().await?; // .take(1) only works for one
@@ -69,9 +84,9 @@ async fn listen_all_events(contract: &FakeNFT<Provider<Ws>>) -> Result<()> {
     }
 
     Ok(())
-}
+} */
 
-async fn process_mint_event(mint_filter: MintFilter) -> Result<()> {
+/* async fn process_mint_event(mint_filter: MintFilter) -> Result<()> {
     let addy = format!("{:?}", mint_filter.to);
     let tokenid = (mint_filter.token_id).to_string();
 
@@ -90,7 +105,7 @@ async fn store_in_redis(address: &str, value: &str) -> redis::RedisResult<()> {
     Ok(())
 }
 
-async fn get_block_sc(scblock: &u32) -> u32 {}
+async fn get_block_sc(scblock: &u32) -> u32 {} */
 //There's any way to get getterts for all the Events?? what about auto writing it in to a file and then we can call it ?
 
 //If it's a CLI we need to somehow store the PID Process number for killin it later
