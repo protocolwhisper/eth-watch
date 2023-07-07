@@ -1,0 +1,7 @@
+{
+    "sc_name": "FakeNFT",
+    "abi_path": "./abi.json",
+    "api_key": "wss://warmhearted-patient-market.ethereum-sepolia.discover.quiknode.pro/aabb295fef34112a987fa071899d1479e592bce5/",
+    "contract_address": "oxshit",
+    "redis_database": "redis://127.0.1/"
+}

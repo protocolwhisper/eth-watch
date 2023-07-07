@@ -1,41 +1,55 @@
 use anyhow::Result;
-use dotenv::dotenv;
 use ethers::{
     contract::Contract,
     core::types::Address,
-    prelude::k256::sha2::digest::typenum::Min,
+    prelude::{
+        abigen,
+        k256::sha2::digest::typenum::{uint, Min},
+    },
     providers::{Provider, StreamExt, Ws},
 };
 use redis::Commands;
+use serde::Deserialize;
+use serde_json::from_str;
+use std::error::Error;
+use std::fs::read_to_string;
 use std::sync::Arc;
-use std::{fs, path};
-
-
-abigen!(FakeNFT, "./abi.json"); // Symbolic to get any contract abi
-                                // It's that possible? just getting the address | if verified of course
+//abigen!(FakeNFT, "./abi.json"); // Symbolic to get any contract abi
+// It's that possible? just getting the address | if verified of course
 
 // Fake Nft Address
+#[derive(Debug, Deserialize)]
+struct ConfigFile {
+    sc_name: String,
+    abi_path: String,
+    api_key: String,
+    contract_address: String,
+    redis_database: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv()?;
-    let mut SC_ADDRESS = std::env::var("CONTRACT_ADDRESS").expect("Failed to read Contract Address");
-    let mut API_KEY = std::env::var("API_KEY")?;
-    let mut SC_NAME = std::env::var("API_KEY")?;
-    let mut PATH = std::env::var("PATH")?;
-    let provider = Provider::<Ws>::connect(API_KEY).await?;
-    let address : Address= SC_ADDRESS.parse()?;
-    //Load SC
-    let contract_abi = Contract::new(SC_ADDRESS,PATH,Arc::new(provider))
-
-    abigen!(sc_name, contract_abi);
-
+    let config_variables = load_json("./config.json").await?;
+    //Load the ABI
+    let sc_id = &config_variables.sc_name;
+    let path = &config_variables.abi_path.as_str();
+    // Should this be solved with a try?
+    abigen!(FakeNFT, "./abi.json");
+    // Setup-provider
+    let provider = Provider::<Ws>::connect(config_variables.api_key).await?;
     let client = Arc::new(provider);
     //Parse the contract address
-    let address: Address = SC_ADDRESS.parse()?;
-
-    listen_all_events(&contract).await?;
+    let address: Address = config_variables.contract_address.parse()?;
+    let contract = sc_name::new(address, client);
+    //listen_all_events(&contract).await?;
     Ok(())
+}
+
+async fn load_json(path_to_json: &str) -> Result<ConfigFile> {
+    let json_str = read_to_string(path_to_json)?; // Read the file content
+    let config_file: ConfigFile = serde_json::from_str(&json_str)?; // Parse the JSON content into ConfigFile
+    println!("The config file is {:?}", config_file);
+    Ok(config_file)
 }
 
 async fn listen_all_events(contract: &FakeNFT<Provider<Ws>>) -> Result<()> {
@@ -67,14 +81,19 @@ async fn process_mint_event(mint_filter: MintFilter) -> Result<()> {
 
 //Database connection
 async fn store_in_redis(address: &str, value: &str) -> redis::RedisResult<()> {
-    let client = redis::Client::open("redis://127.0.1/")?; // <--- This will change if we dockerized it
+    let client = redis::Client::open("redis://127.0.1/")?; // <--- This will change if we dockerized it // redis crate
+                                                           //client custom type , //open method associated with client
     let mut con = client.get_connection()?;
 
     //Since a address can hold multiple tokens ids we use LPUSH
     con.lpush(address, value)?;
     Ok(())
 }
+
+async fn get_block_sc(scblock: &u32) -> u32 {}
 //There's any way to get getterts for all the Events?? what about auto writing it in to a file and then we can call it ?
 
 //If it's a CLI we need to somehow store the PID Process number for killin it later
 
+//Ideas
+// What about get in what blokc does the smart contract gets deployed to stard monitorizing it
