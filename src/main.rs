@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethers::abi::Abi;
 use ethers::prelude::k256::elliptic_curve::bigint::const_residue;
-use ethers::prelude::multicall_contract;
+use ethers::prelude::{abigen, multicall_contract, Abigen, ContractInstance};
 use ethers::{
     contract::Contract,
     core::types::Address,
@@ -9,10 +9,12 @@ use ethers::{
 };
 use redis::Commands;
 use serde::Deserialize;
+use std::fmt::format;
 use std::sync::Arc;
 
 //abigen!(FakeNFT, "./abi.json"); // Symbolic to get any contract abi
 // It's that possible? just getting the address | if verified of course
+abigen!(MyContract, "./abi.json");
 
 // Fake Nft Address
 #[derive(Debug, Deserialize)]
@@ -33,6 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
         &config_variables.abi_path,
     )
     .await?;
+    listen_all_events(contract_instance).await?;
     Ok(())
 }
 
@@ -59,7 +62,8 @@ async fn create_contract_instance(
 
     // Create an instance of the provider
     let provider = Provider::<Ws>::connect(provider_url).await?;
-    let client = Arc::new(provider);
+    let client = Arc::new(provider); // Express a piece of data has multiple owners
+                                     //Arc::clone(&client);
 
     // Create the contract instance
     let contract = Contract::new(address, abi, client);
@@ -67,8 +71,11 @@ async fn create_contract_instance(
     Ok(contract)
 }
 
-/* async fn listen_all_events(contract: &FakeNFT<Provider<Ws>>) -> Result<()> {
-    // optionally sync from recent?
+async fn listen_all_events(
+    contract: ContractInstance<Arc<Provider<Ws>>, Provider<Ws>>,
+) -> Result<()> {
+    let events = contract.event()
+    // optionally sync froeventnt?
     let events = contract.events().from_block(3739350);
     let mut stream = events.stream().await?; // .take(1) only works for one
 
@@ -84,7 +91,7 @@ async fn create_contract_instance(
     }
 
     Ok(())
-} */
+}
 
 /* async fn process_mint_event(mint_filter: MintFilter) -> Result<()> {
     let addy = format!("{:?}", mint_filter.to);
