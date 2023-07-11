@@ -1,16 +1,23 @@
 use anyhow::Result;
 use ethers::abi::Abi;
-use ethers::prelude::k256::elliptic_curve::bigint::const_residue;
-use ethers::prelude::{abigen, multicall_contract, Abigen, ContractInstance};
-use ethers::{
-    contract::Contract,
-    core::types::Address,
-    providers::{Provider, Ws},
-};
+use ethers::contract::{Contract, ContractError};
+use ethers::prelude::ContractInstance;
+use ethers::prelude::LogMeta;
+use ethers::prelude::*;
+use ethers::providers::{Middleware, Provider};
+use ethers::types::{Filter, Log};
+use ethers::{core::types::Address, providers::Ws};
+use futures::future::ok;
+use futures::stream::StreamExt;
 use redis::Commands;
 use serde::Deserialize;
+use serde_json::Value;
+use std::error::Error;
 use std::fmt::format;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
+mod extract_Events; // Import our module (Name of the file)
 
 //abigen!(FakeNFT, "./abi.json"); // Symbolic to get any contract abi
 // It's that possible? just getting the address | if verified of course
@@ -35,7 +42,9 @@ async fn main() -> Result<(), anyhow::Error> {
         &config_variables.abi_path,
     )
     .await?;
-    listen_all_events(contract_instance).await?;
+    let events = extract_Events::extract_event_names(&config_variables.abi_path).unwrap(); // Get events from ABI
+
+    listen_to_raw_logs(contract_instance, &config_variables.api_key).await?;
     Ok(())
 }
 
@@ -64,58 +73,54 @@ async fn create_contract_instance(
     let provider = Provider::<Ws>::connect(provider_url).await?;
     let client = Arc::new(provider); // Express a piece of data has multiple owners
                                      //Arc::clone(&client);
-
-    // Create the contract instance
+                                     // Create the contract instance
     let contract = Contract::new(address, abi, client);
 
     Ok(contract)
 }
+async fn handle_log(log: Log) -> Result<(), Box<dyn Error>> {
+    println!("New log: {:?}", log);
 
-async fn listen_all_events(
-    contract: ContractInstance<Arc<Provider<Ws>>, Provider<Ws>>,
-) -> Result<()> {
-    let events = contract.event()
-    // optionally sync froeventnt?
-    let events = contract.events().from_block(3739350);
-    let mut stream = events.stream().await?; // .take(1) only works for one
+    // Access the log fields
+    let address = log.address;
+    let topics = log.topics;
+    let data = log.data;
+    let block_hash = log.block_hash;
+    let block_number = log.block_number;
+    let transaction_hash = log.transaction_hash;
+    let transaction_index = log.transaction_index;
+    let log_index = log.log_index;
+    let transaction_log_index = log.transaction_log_index;
+    let log_type = log.log_type;
+    let removed = log.removed;
 
-    while let Some(Ok(evt)) = stream.next().await {
-        match evt {
-            FakeNFTEvents::MintFilter(f) => process_mint_event(f).await?, // Let's see the structure tho , it can store everything to but i need my FK or PK
-            FakeNFTEvents::TransferFilter(f) => println!("{f:?}"),
-            FakeNFTEvents::OwnershipTransferredFilter(f) => println!("{f:?}"),
-            FakeNFTEvents::ApprovalForAllFilter(f) => println!("{f:?}"),
-            FakeNFTEvents::ApprovalFilter(f) => println!("{f:?}"),
-            // This scopes only works once tho :(
-        }
+    // Process the log data as needed
+    // ...
+
+    Ok(())
+}
+
+async fn listen_to_raw_logs(
+    contract: ContractInstance<Arc<Provider<Client>>, Provider<Client>>,
+    provider_url: &str,
+) -> Result<(), Box<dyn Error>> {
+    // create a filter for the contract
+    let filter = Filter::new().address(vec![contract.address()]);
+
+    // get the underlying provider
+    let provider = Provider::<Ws>::connect(provider_url).await?;
+    let client = Arc::new(provider);
+
+    // get the logs
+    let logs = match client.get_logs(&filter).await {
+        Ok(logs) => logs,
+        Err(err) => return Err(err.into()),
+    };
+
+    // process each log
+    for log in logs {
+        handle_log(log).await?;
     }
 
     Ok(())
 }
-
-/* async fn process_mint_event(mint_filter: MintFilter) -> Result<()> {
-    let addy = format!("{:?}", mint_filter.to);
-    let tokenid = (mint_filter.token_id).to_string();
-
-    store_in_redis(&addy, &tokenid).await?; // Wait cause of latency
-    Ok(())
-}
-
-//Database connection
-async fn store_in_redis(address: &str, value: &str) -> redis::RedisResult<()> {
-    let client = redis::Client::open("redis://127.0.1/")?; // <--- This will change if we dockerized it // redis crate
-                                                           //client custom type , //open method associated with client
-    let mut con = client.get_connection()?;
-
-    //Since a address can hold multiple tokens ids we use LPUSH
-    con.lpush(address, value)?;
-    Ok(())
-}
-
-async fn get_block_sc(scblock: &u32) -> u32 {} */
-//There's any way to get getterts for all the Events?? what about auto writing it in to a file and then we can call it ?
-
-//If it's a CLI we need to somehow store the PID Process number for killin it later
-
-//Ideas
-// What about get in what blokc does the smart contract gets deployed to stard monitorizing it

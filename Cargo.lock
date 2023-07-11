@@ -19,6 +19,7 @@ dependencies = [
  "anyhow",
  "ethers",
  "eyre",
+ "futures",
  "redis",
  "regex",
  "serde",

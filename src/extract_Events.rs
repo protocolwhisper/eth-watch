@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 
-fn extract_event_names(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn extract_event_names(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     // Open the file
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
@@ -25,15 +25,4 @@ fn extract_event_names(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
         .collect();
 
     Ok(events)
-}
-
-fn main() {
-    match extract_event_names("../abi.json") {
-        Ok(events) => {
-            for event in events {
-                println!("{}", event);
-            }
-        }
-        Err(e) => println!("Error: {}", e),
-    }
 }
