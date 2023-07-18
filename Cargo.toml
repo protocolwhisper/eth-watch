@@ -1,19 +1,25 @@
 [package]
-name = "ScEvents-Logging"
+name = "eth-watch "
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
+testi = "testi.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.71"
-ethers = { version = "2.0", features = ["rustls", "ws"] }
-tokio = { version = "1.28.1", features = ["full"] }
-redis = "0.20"
-serde = {version = "1.0" , features = ["derive"]}
 serde_json = "1.0"
+regex = "1.0"
+ethers = { version = "2.0", features = ["rustls", "ws"] }
+dotenv = "0.15.0"
+tokio = { version = "1", features = ["full"] }
 eyre = "0.6.8"
-regex = "1.9.1"
-futures = "0.3"
 
+[build-dependencies]
+dotenv = "0.15.0"
+ethers = "2.0"
+serde_json = "1.0"
 
+[[bin]]
+name = "dummy"
+path = "src/dummy.rs"
