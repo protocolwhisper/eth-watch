@@ -2,7 +2,7 @@
 
 ## Introduction :book:
 
-eth-watch is a robust tool built with Rust :crab: that provides the ability to listen and index Ethereum :ethereum: smart contract events. It leverages the potent decoding capabilities of the eth-rs library, offering a seamless way to query smart contract events.
+eth-watch is a robust tool built with Rust :crab: that provides the ability to listen and index Ethereum smart contract events. It leverages the potent decoding capabilities of the eth-rs library, offering a seamless way to query smart contract events.
 
 ## Key Features :key:
 
