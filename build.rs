@@ -1,4 +1,6 @@
 use ethers::contract::Abigen;
+use ethers::utils::{hex, keccak256};
+use hex::encode;
 use serde_json::Value;
 use std::error::Error;
 use std::fs;
@@ -34,14 +36,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut file = fs::OpenOptions::new()
         .write(true)
-        .append(true)
         .create(true)
-        .open("events.rs")?;
+        .open("src/events.rs")?;
 
-    write!(file, "const MY_EVENTS: &[&str] = & [\n")?;
+    write!(file, "pub const MY_EVENTS: &[&str] = & [\n")?;
     for event in &events {
-        let params = event.parameters.join(", ");
-        write!(file, "    \"Event({})({})\",\n", event.name, params)?;
+        let params = event.parameters.join(",");
+        write!(file, "\"{}({})\",\n", event.name, params)?;
+    }
+    write!(file, "];\n\n")?;
+
+    write!(file, "pub const MY_EVENTS_HASHED: &[&str] = & [\n")?;
+    for event in &events {
+        let params = event.parameters.join(",");
+        let event_string = format!("{}({})", event.name, params);
+        let hashed = keccak256(event_string);
+        let hashed_str = format!("0x{}", encode(hashed)); // Convert hashed value to hex string with "0x" prefix
+        write!(file, "\"{}\",\n", hashed_str)?;
     }
     write!(file, "];\n")?;
 
