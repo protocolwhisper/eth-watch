@@ -19,7 +19,7 @@ The project utilizes the eth-rs library for interacting with the Ethereum blockc
 
 - [x] Get events from ABI
 - [x] Listen to smart contract logs
-- [ ] Decode logs for event signatures
+- [x] Decode logs for event signatures
 
 ## Stay Tuned :satellite:
 
